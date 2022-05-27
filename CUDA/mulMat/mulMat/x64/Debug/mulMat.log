@@ -1,0 +1,7 @@
+﻿  Compiling CUDA source file kernel.cu...
+  
+  C:\Users\Valeria\Documents\CCOMP1-2022\PARALELA\CUDA\mulMat\mulMat>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.7\bin\nvcc.exe" -gencode=arch=compute_52,code=\"sm_52,compute_52\" --use-local-env -ccbin "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.28.29333\bin\HostX86\x64" -x cu   -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.7\include" -I"C:\DEV\vcpkg\scripts\buildsystems\msbuild\..\..\..\installed\x64-windows\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.7\include"  -G   --keep-dir x64\Debug  -maxrregcount=0  --machine 64 --compile -cudart static  -g  -DWIN32 -DWIN64 -D_DEBUG -D_CONSOLE -D_MBCS -Xcompiler "/EHsc /W3 /nologo /Od /Fdx64\Debug\vc142.pdb /FS /Zi /RTC1 /MDd " -o C:\Users\Valeria\Documents\CCOMP1-2022\PARALELA\CUDA\mulMat\mulMat\x64\Debug\kernel.cu.obj "C:\Users\Valeria\Documents\CCOMP1-2022\PARALELA\CUDA\mulMat\mulMat\kernel.cu" 
+  kernel.cu
+     Creando biblioteca C:\Users\Valeria\Documents\CCOMP1-2022\PARALELA\CUDA\mulMat\x64\Debug\mulMat.lib y objeto C:\Users\Valeria\Documents\CCOMP1-2022\PARALELA\CUDA\mulMat\x64\Debug\mulMat.exp
+LINK : warning LNK4098: la biblioteca predeterminada'LIBCMT' entra en conflicto con otras bibliotecas; use la biblioteca /NODEFAULTLIB:biblioteca
+  mulMat.vcxproj -> C:\Users\Valeria\Documents\CCOMP1-2022\PARALELA\CUDA\mulMat\x64\Debug\mulMat.exe
