@@ -1,121 +1,104 @@
-﻿
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
+#include <cstdio>
+#include <cuda_runtime.h>
+#include <stdlib.h>
 
-#include <stdio.h>
+using namespace std;
 
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
+#if defined(NDEBUG)
+#define CUDA_CHECK (x) (x)
+#else
+#define CUDA_CHECK(X) do{\
+	(X);\
+	cudaError_t e = cudaGetLastError(); \
+	if(cudaSuccess != e){\
+		printf("cuda failure %s at %s : %d", cudaGetErrorString(e), __FILE__, __LINE__);\
+		exit(1);\
+	}\
+}while (0)
+#endif
 
-__global__ void addKernel(int *c, const int *a, const int *b)
+__global__ void addKernel(int* c, const int* a, const int* b)
 {
-    int i = threadIdx.x;
-    c[i] = a[i] + b[i];
+	int x = threadIdx.x;
+	int y = threadIdx.y;
+	int i = y * (blockDim.x) + x;	//[y][x] = y * width + x
+	c[i] = a[i] + b[i];
 }
 
 int main()
 {
-    const int arraySize = 5;
-    const int a[arraySize] = { 1, 2, 3, 4, 5 };
-    const int b[arraySize] = { 10, 20, 30, 40, 50 };
-    int c[arraySize] = { 0 };
+	const int WIDTH = 5;
+	int a[WIDTH][WIDTH];
+	int b[WIDTH][WIDTH];
+	int c[WIDTH][WIDTH] = { 0 };
 
-    // Add vectors in parallel.
-    cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addWithCuda failed!");
-        return 1;
-    }
+	//make a,b matrix
+	for (int y = 0; y < WIDTH; y++)
+	{
+		for (int x = 0; x < WIDTH; x++)
+		{
+			a[y][x] = rand() % 20;
+			b[y][x] = rand() % 20;
+		}
+	}
 
-    printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
-        c[0], c[1], c[2], c[3], c[4]);
+    //imprimiendo matriz A
+    printf("VALORES DE MATRIZ A \n");
+	for (int y = 0; y < WIDTH; y++)
+	{
+		for (int x = 0; x < WIDTH; x++)
+		{
+			printf("%5d", a[y][x]);
+		}
+		printf("\n");
+	}
+	
+	printf("\n\n VALORES DE MATRIZ A \n");
+	for (int y = 0; y < WIDTH; y++)
+	{
+		for (int x = 0; x < WIDTH; x++)
+		{
+			printf("%5d", b[y][x]);
+		}
+		printf("\n\n");
+	}
+	
+	// device-side data
+	int* dev_a = 0;
+	int* dev_b = 0;
+	int* dev_c = 0;
 
-    // cudaDeviceReset must be called before exiting in order for profiling and
-    // tracing tools such as Nsight and Visual Profiler to show complete traces.
-    cudaStatus = cudaDeviceReset();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceReset failed!");
-        return 1;
-    }
+	//allocate device memory
+	CUDA_CHECK(cudaMalloc((void**)&dev_a, WIDTH * WIDTH * sizeof(int)));
+	CUDA_CHECK(cudaMalloc((void**)&dev_b, WIDTH * WIDTH * sizeof(int)));
+	CUDA_CHECK(cudaMalloc((void**)&dev_c, WIDTH * WIDTH * sizeof(int)));
 
-    return 0;
-}
+	//copy from host to device
+	CUDA_CHECK(cudaMemcpy(dev_a, a, WIDTH * WIDTH * sizeof(int), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(dev_b, b, WIDTH * WIDTH * sizeof(int), cudaMemcpyHostToDevice));
 
-// Helper function for using CUDA to add vectors in parallel.
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
-{
-    int *dev_a = 0;
-    int *dev_b = 0;
-    int *dev_c = 0;
-    cudaError_t cudaStatus;
+	//launch a kernel on the GPU with one thread for each element
+	dim3 dimBlock(WIDTH, WIDTH, 1);
+	addKernel <<<1, dimBlock >>> (dev_c, dev_a, dev_b);
+	CUDA_CHECK(cudaPeekAtLastError());
+	
+	//copy from device to host
+	CUDA_CHECK(cudaMemcpy(c, dev_c, WIDTH * WIDTH * sizeof(int), cudaMemcpyDeviceToHost));
 
-    // Choose which GPU to run on, change this on a multi-GPU system.
-    cudaStatus = cudaSetDevice(0);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-        goto Error;
-    }
+	//free device memory
+	CUDA_CHECK(cudaFree(dev_c));
+	CUDA_CHECK(cudaFree(dev_a));
+	CUDA_CHECK(cudaFree(dev_b));
 
-    // Allocate GPU buffers for three vectors (two input, one output)    .
-    cudaStatus = cudaMalloc((void**)&dev_c, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
-
-    cudaStatus = cudaMalloc((void**)&dev_a, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
-
-    cudaStatus = cudaMalloc((void**)&dev_b, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
-
-    // Copy input vectors from host memory to GPU buffers.
-    cudaStatus = cudaMemcpy(dev_a, a, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
-
-    cudaStatus = cudaMemcpy(dev_b, b, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
-
-    // Launch a kernel on the GPU with one thread for each element.
-    addKernel<<<1, size>>>(dev_c, dev_a, dev_b);
-
-    // Check for any errors launching the kernel
-    cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-        goto Error;
-    }
-    
-    // cudaDeviceSynchronize waits for the kernel to finish, and returns
-    // any errors encountered during the launch.
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
-
-    // Copy output vector from GPU buffer to host memory.
-    cudaStatus = cudaMemcpy(c, dev_c, size * sizeof(int), cudaMemcpyDeviceToHost);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
-
-Error:
-    cudaFree(dev_c);
-    cudaFree(dev_a);
-    cudaFree(dev_b);
-    
-    return cudaStatus;
+	//print the result
+	printf("RESULTADO DE SUMA \n");
+	for (int y = 0; y < WIDTH; y++)
+	{
+		for (int x = 0; x < WIDTH; x++)
+		{
+			printf("%5d", c[y][x]);
+		}
+		printf("\n");
+	}
+	return 0;
 }
