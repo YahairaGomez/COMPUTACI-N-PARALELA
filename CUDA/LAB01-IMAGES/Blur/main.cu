@@ -1,7 +1,3 @@
-/**
-* Developed By Karan Bhagat
-* February 2017
-**/
 
 #include <stdio.h>
 #include <string>
