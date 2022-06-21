@@ -1,7 +1,3 @@
-/*
-	main.cpp
-	Converts a RGB image to greyscale using GPU and parallel programming
-*/
 
 #include <iostream>
 #include <cuda.h>
@@ -17,26 +13,25 @@
 using namespace cv;
 using namespace std;
 
-// Placehold for images when opened.
+// Lugar donde estarán las img cc las abran 
 Mat image_rgba;
 Mat image_grey;
 
 /*
-	Imports from the kernel.cu
+	importo desde kernel
 */
 template<typename T>
 void check(T err, const char* const func, const char* const file, 
 			const int line);
-void rgba_to_grey_launcher(uchar4 *const d_rgba, unsigned char *const d_grey,
-							size_t rows, size_t cols);
+void rgba_to_grey_launcher(uchar4 *const d_rgba, unsigned char *const d_grey,	size_t rows, size_t cols);
 
 size_t num_rows(Mat image) { return image.rows; }
 size_t num_cols(Mat image) { return image.cols; }
 size_t num_pixels(Mat image) { return image.cols * image.rows; }
 
 /*
-	Opens the image from the given directory and if it was ok, 
-	returns it in opencv format (Mat).
+	Abre una img del directorio y retorna en formato de OpenCV 
+	
 */
 void pre_process_RGB(const string &in_file) {
 	Mat image;
@@ -55,7 +50,7 @@ void pre_process_RGB(const string &in_file) {
 }
 
 /*
-	Returns the greyscale image placehold from the given RGBA image.
+	Acá ya convierto a gris dada una imagen 
 */
 void pre_process_grey() {
 	image_grey.create(num_rows(image_rgba), num_cols(image_rgba), CV_8UC1);
@@ -66,13 +61,11 @@ void pre_process_grey() {
 }
 
 /*
-	Does the image creation.
+	Reserva memoria para las img
 	Allocates memory for the images in GPU.
 	Copies the RGBA image from CPU to GPU (host to device).
 */
-void pre_process(uchar4 **h_rgba, unsigned char **h_grey,
-                 uchar4 **d_rgba, unsigned char **d_grey,
-                 const string &in_file) {
+void pre_process(uchar4 **h_rgba, unsigned char **h_grey, uchar4 **d_rgba, unsigned char **d_grey, const string &in_file) {
 	cuda_check_errors(cudaFree(0));
 
 	pre_process_RGB(in_file);
@@ -86,15 +79,13 @@ void pre_process(uchar4 **h_rgba, unsigned char **h_grey,
 	cuda_check_errors(cudaMalloc(d_rgba, sizeof(uchar4) * np));
 	cuda_check_errors(cudaMalloc(d_grey, sizeof(unsigned char) * np));
 	cuda_check_errors(cudaMemset(*d_grey, 0, sizeof(unsigned char) * np));
-	cuda_check_errors(cudaMemcpy(*d_rgba, *h_rgba, sizeof(uchar4) * np, 
-									cudaMemcpyHostToDevice));
+	cuda_check_errors(cudaMemcpy(*d_rgba, *h_rgba, sizeof(uchar4) * np, cudaMemcpyHostToDevice)); //copio las imagenes desde cpu a gpu
 }
 
 /*
-	Outputs the result into the output file.
+	Copio o pongo resultado en el file resultante
 */
-void post_process(const string &out_file, unsigned char *h_grey,
-					size_t rows, size_t cols) {
+void post_process(const string &out_file, unsigned char *h_grey, size_t rows, size_t cols) {
 	Mat output(rows, cols, CV_8UC1, (void *) h_grey);
 	imwrite(out_file.c_str(), output);
 }
@@ -120,14 +111,11 @@ int main(int argc, char **argv) {
     pre_process(&h_rgba, &h_grey, &d_rgba, &d_grey, in_file);
     
     clock_t start = clock();
-    rgba_to_grey_launcher(d_rgba, d_grey,
-    						num_rows(image_rgba), num_cols(image_rgba));
+    rgba_to_grey_launcher(d_rgba, d_grey, num_rows(image_rgba), num_cols(image_rgba));
     cudaDeviceSynchronize();
     cuda_check_errors(cudaGetLastError());
 
-    cuda_check_errors(cudaMemcpy(h_grey, d_grey, 
-    					sizeof(unsigned char) * num_pixels(image_rgba), 
-    					cudaMemcpyDeviceToHost));
+    cuda_check_errors(cudaMemcpy(h_grey, d_grey, sizeof(unsigned char) * num_pixels(image_rgba), cudaMemcpyDeviceToHost));
 
     float elapsed = 1000 * double(clock() - start) / CLOCKS_PER_SEC;
     printf("Runtime: %.3f miliseconds. \n", elapsed);
